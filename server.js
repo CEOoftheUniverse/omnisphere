@@ -60,13 +60,17 @@ const MODEL_REGISTRY = {
     'gpt-4o': { provider: 'openai', costIn: 2.5, costOut: 10, speed: 'medium', quality: 9 },
     'gemini-2.0-flash': { provider: 'google', costIn: 0.075, costOut: 0.3, speed: 'fast', quality: 7 },
     'gemini-2.5-pro': { provider: 'google', costIn: 1.25, costOut: 5, speed: 'slow', quality: 9 },
+    // Added from OpenRouter leaderboard (screenshot #79)
+    'minimax-m2.5': { provider: 'minimax', costIn: 0.11, costOut: 0.11, speed: 'fast', quality: 8, note: '#1 on OpenRouter by volume' },
+    'deepseek-v3.2': { provider: 'deepseek', costIn: 0.14, costOut: 0.28, speed: 'fast', quality: 8, note: '#5 on OpenRouter' },
 };
 
 // Cost tiers for arbitrage routing
 const COST_TIERS = {
-    cheap: ['gemini-2.0-flash', 'gpt-4o-mini', 'claude-haiku-3.5'],
+    cheap: ['gemini-2.0-flash', 'gpt-4o-mini', 'minimax-m2.5'],
     balanced: ['claude-sonnet-4', 'gpt-4o-mini', 'gemini-2.0-flash'],
     premium: ['claude-sonnet-4', 'gpt-4o', 'gemini-2.5-pro'],
+    ultraCheap: ['minimax-m2.5', 'deepseek-v3.2', 'gemini-2.0-flash'],
 };
 
 // =========================================================================
