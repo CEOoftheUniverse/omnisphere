@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Omnisphere API Docs — Multi-LLM Router</title>
+<meta name="description" content="Omnisphere API documentation. OpenAI-compatible endpoint, multi-model consensus, smart routing.">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a12;--s:#13131f;--b:rgba(255,255,255,.06);--t:#e8e8ef;--m:#8888a0;--a:#0ea5e9;--g:#22c55e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Space Grotesk',system-ui,sans-serif;background:var(--bg);color:var(--t);line-height:1.7}
+.c{max-width:900px;margin:0 auto;padding:2rem}
+nav{background:rgba(10,10,18,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--b);position:fixed;top:0;width:100%;z-index:99}
+nav .inner{max-width:900px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 2rem}
+nav .brand{font-size:1rem;font-weight:700;letter-spacing:2px;background:linear-gradient(135deg,#00ffd5,var(--a));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+nav a{color:var(--m);text-decoration:none;font-size:.8rem;margin-left:1.5rem}
+h1{font-size:2rem;font-weight:700;margin:5rem 0 1rem}
+h2{font-size:1.3rem;font-weight:600;color:var(--a);margin:3rem 0 1rem;padding-top:1rem;border-top:1px solid var(--b)}
+h3{font-size:1rem;font-weight:600;margin:1.5rem 0 .5rem}
+p{color:var(--m);margin-bottom:1rem;font-size:.9rem}
+code{font-family:'Fira Code',monospace;background:rgba(14,165,233,.1);padding:.15rem .4rem;border-radius:4px;font-size:.8rem;color:#7dd3fc}
+pre{background:rgba(255,255,255,.03);border:1px solid var(--b);border-radius:10px;padding:1.25rem;overflow-x:auto;margin:1rem 0;font-family:'Fira Code',monospace;font-size:.8rem;line-height:1.6;color:#a5b4fc}
+.method{display:inline-block;font-weight:700;font-size:.75rem;padding:.2rem .5rem;border-radius:4px;margin-right:.5rem}
+.get{background:rgba(34,197,94,.15);color:var(--g)}
+.post{background:rgba(14,165,233,.15);color:var(--a)}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{text-align:left;padding:.5rem .75rem;border-bottom:1px solid var(--b)}
+th{color:var(--m);font-weight:600;font-size:.75rem;text-transform:uppercase}
+.note{background:rgba(14,165,233,.08);border-left:3px solid var(--a);padding:1rem;border-radius:0 8px 8px 0;margin:1rem 0;font-size:.85rem}
+.note p{margin:0;color:#93c5fd}
+</style>
+</head>
+<body>
+<nav><div class="inner"><div class="brand">OMNISPHERE DOCS</div><div><a href="index.html">Home</a><a href="docs.html" style="color:var(--t)">Docs</a></div></div></nav>
+
+<div class="c">
+<h1>API Documentation</h1>
+<p>Omnisphere is an OpenAI-compatible multi-LLM router. Use it as a drop-in replacement for the OpenAI API.</p>
+
+<div class="note"><p><strong>Base URL:</strong> <code>http://YOUR_SERVER:3005</code><br><strong>Auth:</strong> <code>Authorization: Bearer omni_your_key</code></p></div>
+
+<h2>Authentication</h2>
+<p>All endpoints except <code>/api/status</code>, <code>/v1/models</code>, and <code>/api/pricing</code> require an API key.</p>
+<pre>Authorization: Bearer omni_your_api_key_here</pre>
+
+<h3>API Key Tiers</h3>
+<table>
+<tr><th>Tier</th><th>Rate Limit</th><th>Monthly Budget</th><th>Best For</th></tr>
+<tr><td>Free</td><td>60 req/min</td><td>$1.00</td><td>Testing, hobby projects</td></tr>
+<tr><td>Pro</td><td>120 req/min</td><td>$25.00</td><td>Production apps</td></tr>
+<tr><td>Enterprise</td><td>300 req/min</td><td>$50.00+</td><td>High-volume, custom</td></tr>
+</table>
+
+<h2>Endpoints</h2>
+
+<h3><span class="method post">POST</span> /v1/chat/completions</h3>
+<p>OpenAI-compatible chat endpoint. Drop-in replacement.</p>
+<pre>{
+  "model": "claude-sonnet-4",     // or any model from /v1/models
+  "messages": [
+    {"role": "user", "content": "Hello, world!"}
+  ],
+  "max_tokens": 1024              // optional, default 1024
+}</pre>
+<p><strong>Response:</strong> Standard OpenAI format + <code>_meta</code> with cost/latency info.</p>
+<pre>{
+  "id": "chatcmpl-1234",
+  "model": "claude-sonnet-4",
+  "choices": [{"message": {"role": "assistant", "content": "..."}}],
+  "usage": {"prompt_tokens": 10, "completion_tokens": 50},
+  "_meta": {"source": "live", "provider": "anthropic", "cost_usd": 0.001, "tier": "balanced"}
+}</pre>
+
+<h3><span class="method post">POST</span> /api/query</h3>
+<p>Auto-routed single query. Omnisphere picks the optimal model based on complexity.</p>
+<pre>{
+  "prompt": "What is the meaning of life?",
+  "tier": "balanced",           // ultraCheap | cheap | balanced | premium
+  "max_tokens": 512             // optional
+}</pre>
+
+<h3><span class="method post">POST</span> /api/consensus</h3>
+<p>Query multiple models simultaneously and get a weighted synthesis.</p>
+<pre>{
+  "prompt": "Compare React vs Vue for enterprise apps",
+  "tier": "premium",            // auto-selects 3 models from this tier
+  "models": ["claude-sonnet-4", "gpt-4o-mini", "gemini-2.0-flash"]  // or specify
+}</pre>
+
+<h3><span class="method get">GET</span> /v1/models</h3>
+<p>List all available models with pricing. No auth required.</p>
+
+<h3><span class="method get">GET</span> /api/status</h3>
+<p>Server health check. No auth required.</p>
+
+<h3><span class="method get">GET</span> /api/pricing</h3>
+<p>Detailed pricing for all models and tiers. No auth required.</p>
+
+<h3><span class="method get">GET</span> /api/health</h3>
+<p>Provider health status from SmartRouter. Shows which models are healthy/failing.</p>
+
+<h3><span class="method get">GET</span> /api/metrics</h3>
+<p>Aggregate metrics per model: calls, latency, cost, success rate.</p>
+
+<h3><span class="method get">GET</span> /api/test-all</h3>
+<p>Tests every model and reports live/demo status. Use to verify which providers are working.</p>
+
+<h2>Available Models</h2>
+<table>
+<tr><th>Model ID</th><th>Provider</th><th>Input $/M</th><th>Output $/M</th><th>Quality</th><th>Speed</th></tr>
+<tr><td><code>claude-sonnet-4</code></td><td>Anthropic</td><td>$3.00</td><td>$15.00</td><td>⭐9</td><td>Fast</td></tr>
+<tr><td><code>claude-haiku-3.5</code></td><td>Anthropic</td><td>$0.80</td><td>$4.00</td><td>⭐7</td><td>Fast</td></tr>
+<tr><td><code>gpt-4o-mini</code></td><td>OpenAI</td><td>$0.15</td><td>$0.60</td><td>⭐7</td><td>Fast</td></tr>
+<tr><td><code>gpt-4o</code></td><td>OpenAI</td><td>$2.50</td><td>$10.00</td><td>⭐9</td><td>Medium</td></tr>
+<tr><td><code>gemini-2.0-flash</code></td><td>Google</td><td>$0.075</td><td>$0.30</td><td>⭐7</td><td>Fast</td></tr>
+<tr><td><code>gemini-2.5-pro</code></td><td>Google</td><td>$1.25</td><td>$5.00</td><td>⭐9</td><td>Slow</td></tr>
+<tr><td><code>minimax-m2.5</code></td><td>MiniMax</td><td>$0.11</td><td>$0.11</td><td>⭐8</td><td>Fast</td></tr>
+<tr><td><code>deepseek-v3.2</code></td><td>DeepSeek</td><td>$0.14</td><td>$0.28</td><td>⭐8</td><td>Fast</td></tr>
+</table>
+
+<h2>Cost Tiers</h2>
+<table>
+<tr><th>Tier</th><th>Avg Cost</th><th>Models Used</th><th>Best For</th></tr>
+<tr><td><code>ultraCheap</code></td><td>$0.0001</td><td>MiniMax, DeepSeek, Gemini Flash</td><td>Bulk, simple tasks</td></tr>
+<tr><td><code>cheap</code></td><td>$0.0005</td><td>Gemini Flash, GPT-4o-mini, MiniMax</td><td>Standard Q&A</td></tr>
+<tr><td><code>balanced</code></td><td>$0.003</td><td>Claude Sonnet, GPT-4o-mini, Gemini Flash</td><td>Coding, analysis</td></tr>
+<tr><td><code>premium</code></td><td>$0.01</td><td>Claude Sonnet, GPT-4o, Gemini Pro</td><td>Research, strategy</td></tr>
+</table>
+
+<h2>Smart Routing</h2>
+<p>If you don't specify a model, Omnisphere analyzes your prompt complexity and auto-routes:</p>
+<ul style="color:var(--m);font-size:.85rem;padding-left:1.5rem;margin-bottom:1rem">
+<li>Short simple queries → ultraCheap tier</li>
+<li>Analytical/comparison prompts → balanced tier</li>
+<li>Code or long complex prompts → premium tier</li>
+</ul>
+<p>The SmartRouter tracks provider health and automatically routes around failures. If Claude is down, queries go to GPT. If both are down, Gemini. If all direct APIs fail, OpenRouter is used as universal fallback.</p>
+
+<h2>Error Handling</h2>
+<pre>// 401 — Bad or missing API key
+{"error": {"message": "API key required", "type": "auth_error"}}
+
+// 429 — Rate limit exceeded
+{"error": {"message": "Rate limit exceeded (60/min)", "type": "rate_limit"}}
+
+// 402 — Monthly budget exhausted
+{"error": {"message": "Monthly budget exhausted ($1.00/$1.00)", "type": "budget_exceeded"}}</pre>
+</div>
+</body>
+</html>
