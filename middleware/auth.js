@@ -51,7 +51,7 @@ function generateKey(name, tier = 'free', monthlyBudget = 1.0) {
 function authMiddleware(req, res, next) {
     // Public/admin endpoints don't need API key auth
     const publicPaths = ['/api/status', '/api/pricing', '/v1/models', '/'];
-    if (publicPaths.some(p => req.path === p || req.path.startsWith('/api/metrics') || req.path.startsWith('/admin') || req.path === '/api/test-all')) return next();
+    if (publicPaths.some(p => req.path === p || req.path.startsWith('/api/metrics') || req.path.startsWith('/admin') || req.path === '/api/test-all' || req.path === '/api/health')) return next();
 
     const authHeader = req.headers.authorization;
     const key = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : req.query.key;

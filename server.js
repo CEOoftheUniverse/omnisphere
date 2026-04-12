@@ -56,6 +56,12 @@ app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Smart Router with health tracking
+let SmartRouter;
+try { SmartRouter = require('./lib/smart-router'); } catch { SmartRouter = null; }
+const router = SmartRouter ? new SmartRouter() : null;
+console.log('SmartRouter:', router ? '✅ health tracking active' : '⚠️ disabled');
+
 // Auth + Rate Limiting + Usage Metering
 let auth;
 try { auth = require('./middleware/auth'); app.use(auth.authMiddleware); console.log('Auth: ✅ API key system active'); } catch(e) { console.log('Auth: ⚠️ Running without auth'); }
@@ -210,10 +216,12 @@ async function callModel(modelName, prompt, maxTokens = 1024) {
             const result = { text: r.text, source: 'live', model: modelName, provider: reg.provider, latency_ms: Date.now() - startMs, tokens_in: r.tokens_in, tokens_out: r.tokens_out, cost };
             if (db) db.run(`INSERT INTO metrics (model, provider, latency_ms, tokens_in, tokens_out, cost_usd, success) VALUES (?,?,?,?,?,?,1)`,
                 [modelName, reg.provider, result.latency_ms, r.tokens_in, r.tokens_out, cost]);
+            if (router) router.recordSuccess(modelName, result.latency_ms);
             return result;
         } catch (e) {
             console.warn(`[${modelName}] API fail:`, e.message.slice(0, 100));
             if (db) db.run(`INSERT INTO metrics (model, provider, latency_ms, success) VALUES (?,?,?,0)`, [modelName, reg.provider, Date.now() - startMs]);
+            if (router) router.recordFailure(modelName, e.message.slice(0, 100));
         }
     }
     
@@ -377,6 +385,21 @@ app.get('/api/metrics/daily', (_req, res) => {
 app.get('/api/history', (_req, res) => {
     if (!db) return res.json([]);
     db.all(`SELECT * FROM dialogues ORDER BY timestamp DESC LIMIT 50`, [], (err, rows) => res.json(err ? [] : rows));
+});
+
+// Router health status
+app.get('/api/health', (_req, res) => {
+    res.json({
+        router: router ? router.getStatus() : 'disabled',
+        providers: {
+            anthropic: { configured: !!API_KEYS.anthropic, caller: !!PROVIDER_CALLERS.anthropic },
+            openai: { configured: !!API_KEYS.openai, caller: !!PROVIDER_CALLERS.openai },
+            google: { configured: !!API_KEYS.google, caller: !!PROVIDER_CALLERS.google },
+            minimax: { configured: !!API_KEYS.minimax, caller: !!PROVIDER_CALLERS.minimax },
+            deepseek: { configured: !!API_KEYS.deepseek, caller: !!PROVIDER_CALLERS.deepseek },
+            openrouter: { configured: !!API_KEYS.openrouter, universal_fallback: true },
+        },
+    });
 });
 
 // Test all models endpoint
