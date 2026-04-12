@@ -203,7 +203,7 @@ async function callModel(modelName, prompt, maxTokens = 1024) {
     if (caller) {
         try {
             const apiModel = modelName === 'claude-sonnet-4' ? 'claude-sonnet-4-20250514'
-                : modelName === 'claude-haiku-3.5' ? 'claude-3-5-haiku-20241022'
+                : modelName === 'claude-haiku-3.5' ? 'claude-3-haiku-20240307'
                 : modelName;
             const r = await caller(prompt, apiModel, maxTokens);
             const cost = (r.tokens_in * reg.costIn + r.tokens_out * reg.costOut) / 1_000_000;
@@ -269,9 +269,26 @@ app.get('/api/status', (_req, res) => {
 
 // OpenAI-compatible proxy endpoint — customers use this
 app.post('/v1/chat/completions', async (req, res) => {
-    const { model, messages, max_tokens, stream } = req.body;
+    const { model, messages, max_tokens, stream, tools, tool_choice } = req.body;
     if (!messages?.length) return res.status(400).json({ error: { message: 'messages required' } });
     
+    // MCP Tool Bypass: If tools are active, preserve the exact JSON array and route to OpenRouter natively
+    if (tools && tools.length > 0) {
+        try {
+            const orModel = (model && OPENROUTER_MODELS[model]) ? OPENROUTER_MODELS[model] : 'openai/gpt-4o-mini';
+            const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEYS.openrouter}` },
+                body: JSON.stringify({ model: orModel, messages, max_tokens: max_tokens || 1024, tools, tool_choice }),
+            });
+            const data = await resp.json();
+            return res.json(data);
+        } catch (e) {
+            return res.status(500).json({ error: { message: e.message }});
+        }
+    }
+    
+    // Standard Arbitrage (Cost Reduction String Mapping)
     const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n');
     const tier = estimateComplexity(prompt);
     const targetModel = model && MODEL_REGISTRY[model] ? model : selectModels(tier, 1)[0];
