@@ -12,6 +12,7 @@ const API_KEYS = {
     google: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || '',
     minimax: process.env.MINIMAX_API_KEY || '',
     deepseek: process.env.DEEPSEEK_API_KEY || '',
+    openrouter: process.env.OPENROUTER_API_KEY || '',
 };
 
 console.log('Omnisphere v3.0 — Multi-LLM Arbitrage Router');
@@ -19,6 +20,9 @@ console.log('APIs:', {
     anthropic: API_KEYS.anthropic ? '✅' : '❌',
     openai: API_KEYS.openai ? '✅' : '❌',
     google: API_KEYS.google ? '✅' : '❌',
+    minimax: API_KEYS.minimax ? '✅' : '❌',
+    deepseek: API_KEYS.deepseek ? '✅' : '❌',
+    openrouter: API_KEYS.openrouter ? '✅ (universal fallback)' : '❌',
 });
 
 // SQLite metrics
@@ -142,6 +146,36 @@ async function callDeepSeek(prompt, model = 'deepseek-chat', maxTokens = 1024) {
     return { text: data.choices?.[0]?.message?.content || '', tokens_in: u.prompt_tokens || 0, tokens_out: u.completion_tokens || 0 };
 }
 
+// OpenRouter universal fallback — routes to any model via OpenAI-compatible API
+async function callOpenRouter(prompt, model = 'openai/gpt-4o-mini', maxTokens = 1024) {
+    const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${API_KEYS.openrouter}`,
+            'HTTP-Referer': 'https://ceooftheuniverse.github.io/omnisphere/',
+            'X-Title': 'Omnisphere Multi-LLM Router',
+        },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens }),
+    });
+    if (!resp.ok) throw new Error(`OpenRouter ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
+    const data = await resp.json();
+    const u = data.usage || {};
+    return { text: data.choices?.[0]?.message?.content || '', tokens_in: u.prompt_tokens || 0, tokens_out: u.completion_tokens || 0 };
+}
+
+// OpenRouter model ID mapping
+const OPENROUTER_MODELS = {
+    'claude-sonnet-4': 'anthropic/claude-sonnet-4',
+    'claude-haiku-3.5': 'anthropic/claude-3.5-haiku',
+    'gpt-4o-mini': 'openai/gpt-4o-mini',
+    'gpt-4o': 'openai/gpt-4o',
+    'gemini-2.0-flash': 'google/gemini-2.0-flash-001',
+    'gemini-2.5-pro': 'google/gemini-2.5-pro-preview',
+    'minimax-m2.5': 'minimax/minimax-01',
+    'deepseek-v3.2': 'deepseek/deepseek-chat',
+};
+
 const PROVIDER_CALLERS = {
     anthropic: API_KEYS.anthropic ? callAnthropic : null,
     openai: API_KEYS.openai ? callOpenAI : null,
@@ -183,7 +217,22 @@ async function callModel(modelName, prompt, maxTokens = 1024) {
         }
     }
     
-    // Demo fallback
+    // OpenRouter fallback (universal provider)
+    if (API_KEYS.openrouter && OPENROUTER_MODELS[modelName]) {
+        try {
+            const orModel = OPENROUTER_MODELS[modelName];
+            const r = await callOpenRouter(prompt, orModel, maxTokens);
+            const cost = (r.tokens_in * reg.costIn + r.tokens_out * reg.costOut) / 1_000_000;
+            const result = { text: r.text, source: 'openrouter', model: modelName, provider: 'openrouter', latency_ms: Date.now() - startMs, tokens_in: r.tokens_in, tokens_out: r.tokens_out, cost };
+            if (db) db.run(`INSERT INTO metrics (model, provider, latency_ms, tokens_in, tokens_out, cost_usd, success) VALUES (?,?,?,?,?,?,1)`,
+                [modelName, 'openrouter', result.latency_ms, r.tokens_in, r.tokens_out, cost]);
+            return result;
+        } catch (e) {
+            console.warn(`[${modelName}] OpenRouter fail:`, e.message.slice(0, 100));
+        }
+    }
+
+    // Demo fallback (last resort)
     const demoFn = DEMOS[reg.provider];
     await new Promise(r => setTimeout(r, 200));
     return { text: demoFn ? demoFn(prompt) : `[${modelName}] Demo response.`, source: 'demo', model: modelName, provider: reg.provider, latency_ms: Date.now() - startMs, cost: 0 };
@@ -311,6 +360,22 @@ app.get('/api/metrics/daily', (_req, res) => {
 app.get('/api/history', (_req, res) => {
     if (!db) return res.json([]);
     db.all(`SELECT * FROM dialogues ORDER BY timestamp DESC LIMIT 50`, [], (err, rows) => res.json(err ? [] : rows));
+});
+
+// Test all models endpoint
+app.get('/api/test-all', async (_req, res) => {
+    const testPrompt = 'Reply with exactly: ALIVE';
+    const results = {};
+    for (const [name] of Object.entries(MODEL_REGISTRY)) {
+        try {
+            const r = await callModel(name, testPrompt, 20);
+            results[name] = { status: r.source === 'demo' ? 'demo' : 'live', source: r.source, latency_ms: r.latency_ms, provider: r.provider };
+        } catch (e) {
+            results[name] = { status: 'error', error: e.message.slice(0, 100) };
+        }
+    }
+    const liveCount = Object.values(results).filter(r => r.status === 'live' || r.source === 'openrouter').length;
+    res.json({ models: results, summary: { total: Object.keys(results).length, live: liveCount } });
 });
 
 // Pricing page data
