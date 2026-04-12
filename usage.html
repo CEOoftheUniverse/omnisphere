@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Usage Dashboard — Omnisphere</title>
+<style>
+:root{--bg:#0a0a12;--s:#13131f;--b:rgba(255,255,255,.06);--t:#e8e8ef;--m:#8888a0;--a:#0ea5e9;--g:#22c55e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--t);padding:2rem;max-width:1100px;margin:0 auto}
+h1{font-size:1.5rem;font-weight:700;margin-bottom:1.5rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:2rem}
+.card{background:var(--s);border:1px solid var(--b);border-radius:12px;padding:1.5rem}
+.card .label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m);margin-bottom:.5rem}
+.card .val{font-size:2rem;font-weight:700}
+.green{color:var(--g)}.blue{color:var(--a)}.orange{color:#f59e0b}
+table{width:100%;border-collapse:collapse;margin-top:1rem}
+th,td{text-align:left;padding:.6rem .75rem;border-bottom:1px solid var(--b);font-size:.8rem}
+th{color:var(--m);font-weight:600;font-size:.7rem;text-transform:uppercase}
+.badge{display:inline-block;padding:.15rem .5rem;border-radius:4px;font-size:.7rem;font-weight:600}
+.live{background:rgba(34,197,94,.15);color:var(--g)}
+.demo{background:rgba(136,136,160,.15);color:var(--m)}
+.fail{background:rgba(239,68,68,.15);color:#ef4444}
+#refresh{background:var(--a);color:#fff;border:none;padding:.5rem 1rem;border-radius:6px;cursor:pointer;font-size:.8rem;font-weight:600;margin-bottom:1rem}
+</style>
+</head>
+<body>
+<h1>📊 Omnisphere Usage Dashboard</h1>
+<button id="refresh" onclick="load()">↻ Refresh</button>
+<span id="updated" style="font-size:.75rem;color:var(--m);margin-left:1rem"></span>
+
+<div class="grid" id="summary"></div>
+
+<div class="card">
+<div class="label">Model Performance</div>
+<table><thead><tr><th>Model</th><th>Provider</th><th>Calls</th><th>Success</th><th>Avg Latency</th><th>Cost</th><th>Tokens</th><th>Status</th></tr></thead>
+<tbody id="models"></tbody></table>
+</div>
+
+<div class="card" style="margin-top:1rem">
+<div class="label">Provider Health (SmartRouter)</div>
+<table><thead><tr><th>Model</th><th>Healthy</th><th>Successes</th><th>Failures</th><th>Avg Latency</th><th>Last Error</th></tr></thead>
+<tbody id="health"></tbody></table>
+</div>
+
+<div class="card" style="margin-top:1rem">
+<div class="label">Daily Usage</div>
+<table><thead><tr><th>Date</th><th>Calls</th><th>Cost</th><th>Tokens</th></tr></thead>
+<tbody id="daily"></tbody></table>
+</div>
+
+<script>
+async function load() {
+    document.getElementById('updated').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+    
+    // Metrics
+    try {
+        const r = await (await fetch('/api/metrics')).json();
+        const s = r.summary || {};
+        document.getElementById('summary').innerHTML = `
+            <div class="card"><div class="label">Total Calls</div><div class="val blue">${s.totalCalls || 0}</div></div>
+            <div class="card"><div class="label">Total Cost</div><div class="val green">$${(s.totalCost || 0).toFixed(4)}</div></div>
+            <div class="card"><div class="label">Avg Cost/Call</div><div class="val orange">$${(s.avgCostPerCall || 0).toFixed(6)}</div></div>
+            <div class="card"><div class="label">Active Models</div><div class="val blue">${(r.models || []).filter(m => m.successes > 0).length}/${(r.models || []).length}</div></div>
+        `;
+        const tbody = document.getElementById('models');
+        tbody.innerHTML = (r.models || []).map(m => {
+            const rate = m.calls > 0 ? ((m.successes/m.calls)*100).toFixed(0) : 0;
+            const cls = rate > 80 ? 'live' : rate > 0 ? 'demo' : 'fail';
+            return `<tr><td><strong>${m.model}</strong></td><td>${m.provider}</td><td>${m.calls}</td><td>${m.successes}/${m.calls} (${rate}%)</td><td>${Math.round(m.avg_latency_ms)}ms</td><td>$${(m.total_cost||0).toFixed(6)}</td><td>${((m.total_tokens_in||0)+(m.total_tokens_out||0)).toLocaleString()}</td><td><span class="badge ${cls}">${rate>80?'LIVE':rate>0?'PARTIAL':'FAIL'}</span></td></tr>`;
+        }).join('');
+    } catch(e) { console.error(e); }
+    
+    // Health
+    try {
+        const h = await (await fetch('/api/health')).json();
+        const tbody = document.getElementById('health');
+        const entries = Object.entries(h.router || {});
+        tbody.innerHTML = entries.length ? entries.map(([m, d]) => 
+            `<tr><td>${m}</td><td>${d.healthy?'✅':'❌'}</td><td>${d.successes||0}</td><td>${d.failCount||0}</td><td>${d.avgLatency||'-'}ms</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.7rem">${d.lastError||'-'}</td></tr>`
+        ).join('') : '<tr><td colspan="6" style="color:var(--m)">No data yet — make some API calls first</td></tr>';
+    } catch(e) { console.error(e); }
+    
+    // Daily
+    try {
+        const d = await (await fetch('/api/metrics/daily')).json();
+        document.getElementById('daily').innerHTML = (d.days || []).map(day =>
+            `<tr><td>${day.day}</td><td>${day.calls}</td><td>$${(day.cost||0).toFixed(4)}</td><td>${(day.tokens||0).toLocaleString()}</td></tr>`
+        ).join('') || '<tr><td colspan="4" style="color:var(--m)">No data yet</td></tr>';
+    } catch(e) { console.error(e); }
+}
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

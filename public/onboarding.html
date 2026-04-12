@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Get Started — Omnisphere API</title>
+<style>
+:root{--bg:#0a0a12;--s:#13131f;--b:rgba(255,255,255,.06);--t:#e8e8ef;--m:#8888a0;--a:#0ea5e9;--g:#22c55e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--t);line-height:1.7;display:flex;justify-content:center;padding:3rem 1rem}
+.card{max-width:560px;width:100%;background:var(--s);border:1px solid var(--b);border-radius:16px;padding:2.5rem}
+h1{font-size:1.5rem;font-weight:700;margin-bottom:.5rem}
+p{color:var(--m);font-size:.9rem;margin-bottom:1.5rem}
+.step{display:flex;gap:1rem;margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--b)}
+.step-num{width:32px;height:32px;border-radius:50%;background:rgba(14,165,233,.15);color:var(--a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0}
+.step h3{font-size:.95rem;font-weight:600;margin-bottom:.25rem}
+.step p{font-size:.8rem;margin:0}
+code{background:rgba(14,165,233,.1);padding:.15rem .4rem;border-radius:4px;font-size:.8rem;color:#7dd3fc}
+pre{background:rgba(255,255,255,.03);border:1px solid var(--b);border-radius:8px;padding:1rem;overflow-x:auto;margin:.75rem 0;font-size:.75rem;line-height:1.6}
+input{width:100%;padding:.6rem 1rem;border-radius:8px;border:1px solid var(--b);background:rgba(255,255,255,.05);color:var(--t);font-size:.85rem;margin:.5rem 0}
+button{background:var(--a);color:#fff;border:none;padding:.7rem 1.5rem;border-radius:8px;font-weight:700;cursor:pointer;width:100%;font-size:.9rem;margin-top:.5rem}
+button:hover{background:#38bdf8}
+.result{margin-top:1rem;padding:1rem;border-radius:8px;font-size:.8rem;font-family:monospace;word-break:break-all}
+.ok{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);color:var(--g)}
+.err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#ef4444}
+a{color:var(--a)}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>🚀 Get Your API Key</h1>
+<p>Set up Omnisphere in under 2 minutes. One API key, 8 models, 70% cheaper.</p>
+
+<div class="step">
+<div class="step-num">1</div>
+<div><h3>Enter your name</h3><p>This identifies your API key in the dashboard.</p>
+<input type="text" id="name" placeholder="Your name or project name">
+</div></div>
+
+<div class="step">
+<div class="step-num">2</div>
+<div><h3>Choose your tier</h3><p>Free = 60 req/min, $1/mo budget. Upgrade anytime.</p>
+<select id="tier" style="width:100%;padding:.6rem;border-radius:8px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.05);color:#e8e8ef;font-size:.85rem;margin:.5rem 0">
+<option value="free">Free — 60 req/min, $1/mo</option>
+<option value="pro">Pro — 120 req/min, $25/mo</option>
+<option value="enterprise">Enterprise — 300 req/min, $50/mo</option>
+</select>
+</div></div>
+
+<button onclick="createKey()">Generate API Key →</button>
+
+<div id="result" style="display:none"></div>
+
+<div class="step" style="margin-top:2rem;border-bottom:none;padding-bottom:0">
+<div class="step-num">3</div>
+<div><h3>Use it</h3><p>Drop-in OpenAI replacement. Change one URL:</p>
+<pre>curl -X POST YOUR_SERVER/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"claude-sonnet-4","messages":[{"role":"user","content":"Hello"}]}'</pre>
+<p><a href="docs.html">Full API documentation →</a></p>
+</div></div>
+</div>
+
+<script>
+async function createKey() {
+    const name = document.getElementById('name').value.trim();
+    const tier = document.getElementById('tier').value;
+    if (!name) { alert('Please enter a name'); return; }
+    
+    const budgets = { free: 1, pro: 25, enterprise: 50 };
+    const el = document.getElementById('result');
+    el.style.display = 'block';
+    el.className = '';
+    el.innerHTML = 'Creating key...';
+    
+    try {
+        const r = await fetch('/admin/keys', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-secret': 'omni-admin-2026' },
+            body: JSON.stringify({ name, tier, monthlyBudget: budgets[tier] })
+        });
+        const d = await r.json();
+        if (d.success) {
+            el.className = 'result ok';
+            el.innerHTML = `✅ API Key Created!\n\nKey: ${d.key}\nTier: ${d.tier}\nRate: ${d.rateLimit} req/min\nBudget: $${d.monthlyBudget}/mo\n\n⚠️ Save this key — it won't be shown again.`;
+        } else {
+            el.className = 'result err';
+            el.innerHTML = `Error: ${d.error || JSON.stringify(d)}`;
+        }
+    } catch(e) {
+        el.className = 'result err';
+        el.innerHTML = `Connection failed. Is the server running?\n${e.message}`;
+    }
+}
+</script>
+</body>
+</html>
