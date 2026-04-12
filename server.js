@@ -50,6 +50,10 @@ app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Auth + Rate Limiting + Usage Metering
+let auth;
+try { auth = require('./middleware/auth'); app.use(auth.authMiddleware); console.log('Auth: ✅ API key system active'); } catch(e) { console.log('Auth: ⚠️ Running without auth'); }
+
 // =========================================================================
 // MODEL REGISTRY — costs per 1M tokens, capabilities
 // =========================================================================
@@ -195,6 +199,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     
     const result = await callModel(targetModel, prompt, max_tokens || 1024);
     
+    res.set('x-cost', String(result.cost || 0));
     res.json({
         id: `chatcmpl-${Date.now()}`,
         object: 'chat.completion',
@@ -295,6 +300,51 @@ app.get('/api/pricing', (_req, res) => {
             { name: 'Omnisphere Balanced', cost: '$0.003/query', quality: 8.5, savings: '70-80%' },
         ],
     });
+});
+
+// ===== ADMIN: API Key Management =====
+const ADMIN_SECRET = process.env.OMNISPHERE_ADMIN_SECRET || 'omni-admin-2026';
+
+function adminAuth(req, res, next) {
+    const secret = req.headers['x-admin-secret'] || req.query.admin_secret;
+    if (secret !== ADMIN_SECRET) return res.status(403).json({ error: 'Admin access required' });
+    next();
+}
+
+app.post('/admin/keys', adminAuth, (req, res) => {
+    if (!auth) return res.status(503).json({ error: 'Auth module not loaded' });
+    const { name, tier, monthlyBudget } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const result = auth.generateKey(name, tier || 'free', monthlyBudget || 1.0);
+    res.json({ success: true, ...result });
+});
+
+app.get('/admin/keys', adminAuth, (_req, res) => {
+    if (!auth) return res.status(503).json({ error: 'Auth module not loaded' });
+    const keys = auth.loadKeys();
+    const summary = Object.entries(keys).map(([k, v]) => ({
+        key: k.slice(0, 12) + '...',
+        name: v.name, tier: v.tier,
+        spend: `$${(v.monthlySpend || 0).toFixed(4)}/$${v.monthlyBudget}`,
+        calls: v.totalCalls, active: v.active, lastUsed: v.lastUsed,
+    }));
+    res.json({ keys: summary, total: summary.length });
+});
+
+app.delete('/admin/keys/:key', adminAuth, (req, res) => {
+    if (!auth) return res.status(503).json({ error: 'Auth module not loaded' });
+    const keys = auth.loadKeys();
+    if (keys[req.params.key]) { keys[req.params.key].active = false; auth.saveKeys(keys); }
+    res.json({ deactivated: true });
+});
+
+app.get('/admin/revenue', adminAuth, (_req, res) => {
+    if (!auth) return res.json({ totalRevenue: 0 });
+    const keys = auth.loadKeys();
+    const totalRevenue = Object.values(keys).reduce((s, k) => s + (k.totalSpend || 0), 0);
+    const totalCalls = Object.values(keys).reduce((s, k) => s + (k.totalCalls || 0), 0);
+    const activeKeys = Object.values(keys).filter(k => k.active).length;
+    res.json({ totalRevenue: `$${totalRevenue.toFixed(4)}`, totalCalls, activeKeys, avgRevenuePerCall: totalCalls ? `$${(totalRevenue / totalCalls).toFixed(6)}` : '$0' });
 });
 
 app.listen(PORT, '0.0.0.0', () => {

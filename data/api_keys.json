@@ -1,0 +1,14 @@
+{
+  "omni_b78c9d3ec6ca7e3bfb07ea56e3a125f0444792c7c4cca67b": {
+    "name": "MoltBot-Internal",
+    "tier": "enterprise",
+    "monthlyBudget": 50,
+    "monthlySpend": 0,
+    "totalSpend": 0,
+    "totalCalls": 0,
+    "rateLimit": 300,
+    "createdAt": "2026-04-12T13:22:16.523Z",
+    "lastUsed": null,
+    "active": true
+  }
+}
