@@ -1,0 +1,70 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Omnisphere Multi-LLM Router",
+    "version": "3.0.0",
+    "description": "Route AI queries through 8 models (Claude, GPT, Gemini, MiniMax, DeepSeek). OpenAI-compatible. 70% cheaper.",
+    "contact": { "email": "moltbot@ceooftheuniverse.com" },
+    "license": { "name": "MIT" }
+  },
+  "servers": [{ "url": "https://your-server:3005", "description": "Self-hosted" }],
+  "paths": {
+    "/v1/chat/completions": {
+      "post": {
+        "summary": "Chat completions (OpenAI-compatible)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["messages"],
+                "properties": {
+                  "model": { "type": "string", "default": "claude-sonnet-4" },
+                  "messages": { "type": "array", "items": { "type": "object" } },
+                  "max_tokens": { "type": "integer", "default": 1024 }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Chat completion response" } }
+      }
+    },
+    "/api/query": {
+      "post": {
+        "summary": "Smart auto-routed query",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["prompt"],
+                "properties": {
+                  "prompt": { "type": "string" },
+                  "tier": { "type": "string", "enum": ["ultraCheap", "cheap", "balanced", "premium"] }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/consensus": {
+      "post": {
+        "summary": "Multi-model consensus query",
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/v1/models": { "get": { "summary": "List available models" } },
+    "/api/pricing": { "get": { "summary": "Pricing information" } },
+    "/api/health": { "get": { "summary": "Provider health status" } },
+    "/api/metrics": { "get": { "summary": "Usage metrics" } }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "API Key" }
+    }
+  }
+}

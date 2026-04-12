@@ -3,12 +3,12 @@
     "name": "MoltBot-Internal",
     "tier": "enterprise",
     "monthlyBudget": 50,
-    "monthlySpend": 0.0030038,
-    "totalSpend": 0.0030038,
-    "totalCalls": 2,
+    "monthlySpend": 0.023675,
+    "totalSpend": 0.023675,
+    "totalCalls": 5,
     "rateLimit": 300,
     "createdAt": "2026-04-12T13:22:16.523Z",
-    "lastUsed": "2026-04-12T13:47:59.358Z",
+    "lastUsed": "2026-04-12T13:59:27.254Z",
     "active": true
   }
 }
