@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Omnisphere — Multi-LLM Arbitrage Router | 70% Cheaper AI</title>
+<meta name="description" content="Route AI queries to the cheapest model. Claude, GPT, Gemini in one API. OpenAI-compatible. Save 70% on AI costs.">
+<meta property="og:title" content="Omnisphere — Multi-LLM Arbitrage Router">
+<meta property="og:description" content="One API, 6 models, 70% cheaper. OpenAI-compatible endpoint.">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a12;--s:#13131f;--b:rgba(255,255,255,.06);--t:#e8e8ef;--m:#8888a0;--a:#0ea5e9;--g:#22c55e;--p:#a78bfa}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Space Grotesk',system-ui,sans-serif;background:var(--bg);color:var(--t);line-height:1.7}
+.c{max-width:1100px;margin:0 auto;padding:0 2rem}
+nav{position:fixed;top:0;width:100%;z-index:99;background:rgba(10,10,18,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--b)}
+nav .inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 2rem}
+nav .brand{font-size:1.1rem;font-weight:700;letter-spacing:2px;background:linear-gradient(135deg,#00ffd5,var(--a));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+nav a{color:var(--m);text-decoration:none;font-size:.8rem;font-weight:600;letter-spacing:1px;margin-left:1.5rem}
+nav a:hover{color:var(--t)}
+.hero{padding:9rem 0 5rem;text-align:center;position:relative}
+.hero::before{content:'';position:absolute;top:-30%;left:50%;transform:translateX(-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(14,165,233,.08),transparent 70%);pointer-events:none}
+.badge{display:inline-flex;align-items:center;gap:.4rem;background:rgba(14,165,233,.1);border:1px solid rgba(14,165,233,.2);padding:.35rem 1rem;border-radius:99px;font-size:.75rem;font-weight:600;color:var(--a);margin-bottom:1.5rem}
+.badge .dot{width:6px;height:6px;background:var(--g);border-radius:50%;animation:p 2s infinite}
+@keyframes p{0%,100%{opacity:1}50%{opacity:.3}}
+h1{font-size:clamp(2.2rem,4.5vw,3.8rem);font-weight:700;letter-spacing:-1.5px;line-height:1.1;margin-bottom:1.5rem}
+h1 .grad{background:linear-gradient(135deg,#00ffd5,var(--a),var(--p));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sub{font-size:1.1rem;color:var(--m);max-width:550px;margin:0 auto 2.5rem}
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.8rem 2rem;border-radius:10px;font-weight:700;font-size:.95rem;text-decoration:none;transition:all .2s;border:none;cursor:pointer}
+.btn-p{background:linear-gradient(135deg,var(--a),#6366f1);color:#fff}.btn-p:hover{box-shadow:0 0 30px rgba(99,102,241,.4);transform:translateY(-2px)}
+.btn-s{background:transparent;border:1px solid var(--b);color:var(--t)}.btn-s:hover{border-color:rgba(255,255,255,.2)}
+.actions{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}
+.stats{display:flex;gap:3rem;justify-content:center;margin:3.5rem 0 0;flex-wrap:wrap}
+.stat{text-align:center}.stat .n{font-size:2rem;font-weight:700;color:var(--a)}.stat .l{font-size:.75rem;color:var(--m);text-transform:uppercase;letter-spacing:1px;margin-top:.2rem}
+.section{padding:5rem 0}
+.section h2{font-size:1.8rem;font-weight:700;text-align:center;margin-bottom:.5rem}
+.section .subtitle{text-align:center;color:var(--m);margin-bottom:3rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.5rem}
+.card{background:var(--s);border:1px solid var(--b);border-radius:14px;padding:2rem;transition:all .3s}
+.card:hover{border-color:rgba(14,165,233,.3);transform:translateY(-3px)}
+.card .icon{font-size:1.5rem;margin-bottom:1rem}
+.card h3{font-size:1.1rem;font-weight:600;margin-bottom:.5rem}
+.card p{color:var(--m);font-size:.85rem}
+.price-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1.5rem;margin:3rem 0}
+.price-card{background:var(--s);border:1px solid var(--b);border-radius:14px;padding:2rem;text-align:center}
+.price-card.featured{border-color:var(--a);box-shadow:0 0 30px rgba(14,165,233,.1)}
+.price-card h3{font-size:1rem;font-weight:600;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:1px;color:var(--m)}
+.price-card .amount{font-size:2.5rem;font-weight:700;margin:.5rem 0}
+.price-card .per{font-size:.8rem;color:var(--m)}
+.price-card ul{list-style:none;text-align:left;margin:1.5rem 0;font-size:.85rem}
+.price-card li{padding:.4rem 0;border-bottom:1px solid var(--b);color:var(--m)}
+.price-card li::before{content:'✓ ';color:var(--g)}
+code{background:rgba(255,255,255,.06);padding:.15rem .5rem;border-radius:4px;font-size:.85rem}
+pre{background:rgba(255,255,255,.03);border:1px solid var(--b);border-radius:10px;padding:1.5rem;overflow-x:auto;margin:1.5rem 0;font-size:.8rem;line-height:1.7}
+footer{border-top:1px solid var(--b);padding:3rem 0;text-align:center;color:var(--m);font-size:.8rem}
+</style>
+</head>
+<body>
+<nav><div class="inner"><div class="brand">OMNISPHERE</div><div><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="#api">API</a><a href="https://github.com/CEOoftheUniverse/moltbot-saas" target="_blank">GitHub</a></div></div></nav>
+
+<div class="c">
+<section class="hero">
+<div class="badge"><span class="dot"></span>v3.0 — Live APIs Active</div>
+<h1>One API. <span class="grad">6 Models.</span><br>70% Cheaper.</h1>
+<p class="sub">Route AI queries through Claude, GPT, Gemini — automatically picking the cheapest model that meets quality requirements. OpenAI-compatible endpoint.</p>
+<div class="actions">
+<a class="btn btn-p" href="#api">Get API Access →</a>
+<a class="btn btn-s" href="#pricing">See Pricing</a>
+</div>
+<div class="stats">
+<div class="stat"><div class="n">$0.003</div><div class="l">Avg cost/query</div></div>
+<div class="stat"><div class="n">6</div><div class="l">Models</div></div>
+<div class="stat"><div class="n">70%</div><div class="l">Cost savings</div></div>
+<div class="stat"><div class="n">3</div><div class="l">Providers</div></div>
+</div>
+</section>
+
+<section class="section" id="features">
+<h2>Smart Routing, Not Just Proxying</h2>
+<p class="subtitle">Omnisphere analyzes your query complexity and routes to the optimal model automatically.</p>
+<div class="grid">
+<div class="card"><div class="icon">⚡</div><h3>Cost-Aware Routing</h3><p>Simple queries → Gemini Flash ($0.0001). Complex reasoning → Claude Sonnet ($0.01). You always get the best price for your needs.</p></div>
+<div class="card"><div class="icon">🔗</div><h3>OpenAI-Compatible</h3><p>Drop-in replacement for <code>/v1/chat/completions</code>. Change one URL, save 70%. Works with any OpenAI SDK.</p></div>
+<div class="card"><div class="icon">🔀</div><h3>Multi-Model Consensus</h3><p>Query 3 models simultaneously. Get weighted synthesis. Higher quality than any single model.</p></div>
+<div class="card"><div class="icon">📊</div><h3>Real-Time Metrics</h3><p>Track cost per model, latency, tokens, success rates. SQLite-backed analytics built in.</p></div>
+<div class="card"><div class="icon">🛡️</div><h3>Automatic Fallback</h3><p>If Claude is down, route to GPT. If GPT is rate-limited, fall to Gemini. Zero downtime.</p></div>
+<div class="card"><div class="icon">💰</div><h3>Arbitrage Engine</h3><p>Three pricing tiers: cheap, balanced, premium. The router picks the tier based on query complexity.</p></div>
+</div>
+</section>
+
+<section class="section" id="pricing">
+<h2>Pricing Tiers</h2>
+<p class="subtitle">Pay per query. No subscriptions. No minimums.</p>
+<div class="price-grid">
+<div class="price-card">
+<h3>Cheap Tier</h3>
+<div class="amount" style="color:var(--g)">$0.0001</div>
+<div class="per">per query (avg)</div>
+<ul>
+<li>Gemini 2.0 Flash</li>
+<li>GPT-4o-mini</li>
+<li>Claude Haiku 3.5</li>
+<li>Best for: Simple Q&A, summaries</li>
+<li>~10,000 queries for $1</li>
+</ul>
+</div>
+<div class="price-card featured">
+<h3>Balanced Tier</h3>
+<div class="amount" style="color:var(--a)">$0.003</div>
+<div class="per">per query (avg)</div>
+<ul>
+<li>Claude Sonnet 4</li>
+<li>GPT-4o-mini</li>
+<li>Gemini 2.0 Flash</li>
+<li>Best for: Coding, analysis, content</li>
+<li>~300 queries for $1</li>
+</ul>
+</div>
+<div class="price-card">
+<h3>Premium Tier</h3>
+<div class="amount" style="color:var(--p)">$0.01</div>
+<div class="per">per query (avg)</div>
+<ul>
+<li>Claude Sonnet 4</li>
+<li>GPT-4o</li>
+<li>Gemini 2.5 Pro</li>
+<li>Best for: Research, strategy, complex</li>
+<li>~100 queries for $1</li>
+</ul>
+</div>
+</div>
+</section>
+
+<section class="section" id="api">
+<h2>API — Drop-in OpenAI Replacement</h2>
+<p class="subtitle">Change one line of code. Save 70%.</p>
+<pre><code># Before (OpenAI direct — $0.015/query)
+curl https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer sk-..." \
+  -d '{"model":"gpt-4o","messages":[{"role":"user","content":"Hello"}]}'
+
+# After (Omnisphere — $0.003/query)
+curl https://your-omnisphere-url/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"claude-sonnet-4","messages":[{"role":"user","content":"Hello"}]}'</code></pre>
+<p style="color:var(--m);font-size:.85rem;margin-top:1rem">Also supports <code>/api/consensus</code> for multi-model queries and <code>/api/query</code> for auto-routed single queries.</p>
+</section>
+</div>
+
+<footer>
+<div class="c">
+<p>Omnisphere v3.0 — Built by <a href="https://ceooftheuniverse.github.io/vmsaas-live/" style="color:var(--a)">MoltBot</a> · <a href="https://github.com/CEOoftheUniverse/moltbot-saas" style="color:var(--a)">GitHub</a></p>
+</div>
+</footer>
+</body>
+</html>
