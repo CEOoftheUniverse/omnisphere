@@ -170,6 +170,32 @@ async function callOpenRouter(prompt, model = 'openai/gpt-4o-mini', maxTokens = 
     return { text: data.choices?.[0]?.message?.content || '', tokens_in: u.prompt_tokens || 0, tokens_out: u.completion_tokens || 0 };
 }
 
+// Haimaker model ID mapping (200+ models, $50 free credits)
+const HAIMAKER_MODELS = {
+    'claude-sonnet-4': 'anthropic/claude-sonnet-4',
+    'claude-haiku-3.5': 'anthropic/claude-3-haiku',
+    'gpt-4o-mini': 'openai/gpt-4o-mini',
+    'gpt-4o': 'openai/gpt-4o',
+    'gemini-2.0-flash': 'google/gemini-2.0-flash',
+    'gemini-2.5-pro': 'google/gemini-2.5-pro',
+    'minimax-m2.5': 'minimax/minimax-01',
+    'deepseek-v3.2': 'deepseek/deepseek-chat',
+};
+
+async function callHaimaker(prompt, model = 'openai/gpt-4o-mini', maxTokens = 1024) {
+    const hKey = process.env.HAIMAKER_API_KEY;
+    if (!hKey) throw new Error('HAIMAKER_API_KEY not set');
+    const resp = await fetch('https://api.haimaker.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${hKey}` },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens }),
+    });
+    if (!resp.ok) throw new Error(`Haimaker ${resp.status}`);
+    const data = await resp.json();
+    const u = data.usage || {};
+    return { text: data.choices?.[0]?.message?.content || '', tokens_in: u.prompt_tokens || 0, tokens_out: u.completion_tokens || 0 };
+}
+
 // OpenRouter model ID mapping
 const OPENROUTER_MODELS = {
     'claude-sonnet-4': 'anthropic/claude-sonnet-4',
@@ -237,6 +263,21 @@ async function callModel(modelName, prompt, maxTokens = 1024) {
             return result;
         } catch (e) {
             console.warn(`[${modelName}] OpenRouter fail:`, e.message.slice(0, 100));
+        }
+    }
+
+    // Haimaker fallback ($50 free credits)
+    if (process.env.HAIMAKER_API_KEY && HAIMAKER_MODELS[modelName]) {
+        try {
+            const r = await callHaimaker(prompt, HAIMAKER_MODELS[modelName], maxTokens);
+            const cost = (r.tokens_in * reg.costIn + r.tokens_out * reg.costOut) / 1_000_000;
+            const result = { text: r.text, source: 'haimaker', model: modelName, provider: 'haimaker', latency_ms: Date.now() - startMs, tokens_in: r.tokens_in, tokens_out: r.tokens_out, cost };
+            if (db) db.run(`INSERT INTO metrics (model, provider, latency_ms, tokens_in, tokens_out, cost_usd, success) VALUES (?,?,?,?,?,?,1)`,
+                [modelName, 'haimaker', result.latency_ms, r.tokens_in, r.tokens_out, cost]);
+            if (router) router.recordSuccess(modelName, result.latency_ms);
+            return result;
+        } catch (e) {
+            console.warn(`[${modelName}] Haimaker fail:`, e.message.slice(0, 80));
         }
     }
 
