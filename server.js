@@ -10,6 +10,8 @@ const API_KEYS = {
     anthropic: process.env.ANTHROPIC_API_KEY || '',
     openai: process.env.OPENAI_API_KEY || '',
     google: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || '',
+    minimax: process.env.MINIMAX_API_KEY || '',
+    deepseek: process.env.DEEPSEEK_API_KEY || '',
 };
 
 console.log('Omnisphere v3.0 — Multi-LLM Arbitrage Router');
@@ -116,10 +118,36 @@ async function callGoogle(prompt, model = 'gemini-2.0-flash', maxTokens = 1024) 
     return { text: data.candidates?.[0]?.content?.parts?.map(p => p.text).join('\n') || '', tokens_in: u.promptTokenCount || 0, tokens_out: u.candidatesTokenCount || 0 };
 }
 
+async function callMiniMax(prompt, model = 'MiniMax-Text-01', maxTokens = 1024) {
+    const resp = await fetch('https://api.minimaxi.chat/v1/text/chatcompletion_v2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEYS.minimax}` },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens }),
+    });
+    if (!resp.ok) throw new Error(`MiniMax ${resp.status}`);
+    const data = await resp.json();
+    const u = data.usage || {};
+    return { text: data.choices?.[0]?.message?.content || '', tokens_in: u.prompt_tokens || 0, tokens_out: u.completion_tokens || 0 };
+}
+
+async function callDeepSeek(prompt, model = 'deepseek-chat', maxTokens = 1024) {
+    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEYS.deepseek}` },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens }),
+    });
+    if (!resp.ok) throw new Error(`DeepSeek ${resp.status}`);
+    const data = await resp.json();
+    const u = data.usage || {};
+    return { text: data.choices?.[0]?.message?.content || '', tokens_in: u.prompt_tokens || 0, tokens_out: u.completion_tokens || 0 };
+}
+
 const PROVIDER_CALLERS = {
     anthropic: API_KEYS.anthropic ? callAnthropic : null,
     openai: API_KEYS.openai ? callOpenAI : null,
     google: API_KEYS.google ? callGoogle : null,
+    minimax: API_KEYS.minimax ? callMiniMax : null,
+    deepseek: API_KEYS.deepseek ? callDeepSeek : null,
 };
 
 // Demo fallbacks
@@ -127,6 +155,8 @@ const DEMOS = {
     anthropic: (p) => `[Claude Demo] ${p.slice(0, 40)}...\n\nSystematic analysis:\n- Feasibility: High\n- Approach: TypeScript + Rust for perf\n- Risk: Scope creep\nRecommendation: Start minimal, expand.`,
     openai: (p) => `[GPT Demo] ${p.slice(0, 40)}...\n\n1. Architecture: Microservices + gRPC\n2. Performance: Redis caching, 40-60% speedup\n3. Cost: Spot instances = 70% savings`,
     google: (p) => `[Gemini Demo] ${p.slice(0, 40)}...\n\n📊 34% CAGR market growth\n🔍 MoE = 3x efficiency\n💡 Deploy iteratively, A/B test`,
+    minimax: (p) => `[MiniMax Demo] ${p.slice(0, 40)}...\n\n#1 on OpenRouter by volume (433B tokens). Excellent multilingual support. Cost-effective at $0.11/M tokens.`,
+    deepseek: (p) => `[DeepSeek Demo] ${p.slice(0, 40)}...\n\nStrong code + reasoning model. 105B tokens on OpenRouter. Good for technical analysis at $0.14-0.28/M.`,
 };
 
 async function callModel(modelName, prompt, maxTokens = 1024) {
