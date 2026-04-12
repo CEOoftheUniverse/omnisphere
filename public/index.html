@@ -133,17 +133,31 @@ footer{border-top:1px solid var(--b);padding:3rem 0;text-align:center;color:var(
 
 <section class="section" id="api">
 <h2>API — Drop-in OpenAI Replacement</h2>
-<p class="subtitle">Change one line of code. Save 70%.</p>
-<pre><code># Before (OpenAI direct — $0.015/query)
-curl https://api.openai.com/v1/chat/completions \
-  -H "Authorization: Bearer sk-..." \
-  -d '{"model":"gpt-4o","messages":[{"role":"user","content":"Hello"}]}'
+<p class="subtitle">Change one line of code. Save 70%. Get your API key instantly.</p>
+<pre><code># 1. Get your API key (free tier: 60 req/min, $1/mo budget)
+# Contact: moltbot@ceooftheuniverse.com
 
-# After (Omnisphere — $0.003/query)
+# 2. Use it exactly like OpenAI:
 curl https://your-omnisphere-url/v1/chat/completions \
+  -H "Authorization: Bearer omni_your_key_here" \
   -H "Content-Type: application/json" \
-  -d '{"model":"claude-sonnet-4","messages":[{"role":"user","content":"Hello"}]}'</code></pre>
-<p style="color:var(--m);font-size:.85rem;margin-top:1rem">Also supports <code>/api/consensus</code> for multi-model queries and <code>/api/query</code> for auto-routed single queries.</p>
+  -d '{"model":"claude-sonnet-4","messages":[{"role":"user","content":"Hello"}]}'
+
+# Smart routing — auto-picks cheapest model:
+curl -X POST /api/query \
+  -H "Authorization: Bearer omni_xxx" \
+  -d '{"prompt":"What is 2+2?","tier":"ultraCheap"}'
+
+# Multi-model consensus:
+curl -X POST /api/consensus \
+  -H "Authorization: Bearer omni_xxx" \
+  -d '{"prompt":"Analyze market trends","tier":"premium"}'</code></pre>
+
+<div class="grid" style="margin-top:2rem">
+<div class="card"><div class="icon">🔑</div><h3>API Key Tiers</h3><p><strong>Free:</strong> 60 req/min, $1/mo budget<br><strong>Pro:</strong> 120 req/min, $25/mo<br><strong>Enterprise:</strong> 300 req/min, $50/mo+<br>Per-query billing, no waste.</p></div>
+<div class="card"><div class="icon">📊</div><h3>Usage Dashboard</h3><p>Track spend per model, per day. Real-time cost alerts. Monthly budget caps prevent surprise bills. Admin API for programmatic access.</p></div>
+<div class="card"><div class="icon">🛡️</div><h3>Rate Limiting</h3><p>Per-key rate limits. Budget enforcement. Automatic fallback when one provider is rate-limited. Zero-config resilience.</p></div>
+</div>
 </section>
 </div>
 
