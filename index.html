@@ -16,6 +16,23 @@
 <meta name="robots" content="index, follow">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🌐</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Omnisphere",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Cloud",
+  "url": "https://ceooftheuniverse.github.io/omnisphere/",
+  "description": "Multi-LLM arbitrage router. One API, 8 models, 70% cheaper. OpenAI-compatible endpoint.",
+  "offers": [
+    {"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "60 req/min, $1/mo budget"},
+    {"@type": "Offer", "name": "Pro", "price": "25", "priceCurrency": "USD", "description": "120 req/min, $25/mo budget"},
+    {"@type": "Offer", "name": "Enterprise", "price": "50", "priceCurrency": "USD", "description": "300 req/min, $50/mo+ budget"}
+  ],
+  "publisher": {"@type": "Organization", "name": "MoltBot Cloud", "url": "https://ceooftheuniverse.github.io/vmsaas-live/"}
+}
+</script>
 <style>
 :root{--bg:#0a0a12;--s:#13131f;--b:rgba(255,255,255,.06);--t:#e8e8ef;--m:#8888a0;--a:#0ea5e9;--g:#22c55e;--p:#a78bfa}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -171,7 +188,14 @@ curl -X POST /api/consensus \
 
 <footer>
 <div class="c">
-<p>Omnisphere v3.0 — Built by <a href="https://ceooftheuniverse.github.io/vmsaas-live/" style="color:var(--a)">MoltBot</a> · <a href="https://github.com/CEOoftheUniverse/moltbot-saas" style="color:var(--a)">GitHub</a></p>
+<div style="display:flex;justify-content:center;gap:2rem;flex-wrap:wrap;margin-bottom:.5rem">
+<a href="https://ceooftheuniverse.github.io/vmsaas-live/" style="color:var(--m);text-decoration:none;font-size:.8rem">MoltBot Cloud</a>
+<a href="https://ceooftheuniverse.github.io/omnisphere/" style="color:var(--a);text-decoration:none;font-size:.8rem">Omnisphere</a>
+<a href="https://ceooftheuniverse.github.io/moltbot-saas/" style="color:var(--m);text-decoration:none;font-size:.8rem">MoltBot SaaS</a>
+<a href="https://ceooftheuniverse.github.io/omnisphere/docs.html" style="color:var(--m);text-decoration:none;font-size:.8rem">Docs</a>
+<a href="https://github.com/CEOoftheUniverse" style="color:var(--m);text-decoration:none;font-size:.8rem">GitHub</a>
+</div>
+<p>Omnisphere v3.0 — Built by <a href="https://ceooftheuniverse.github.io/vmsaas-live/" style="color:var(--a)">MoltBot</a> · © 2026 MoltBot Cloud</p>
 </div>
 </footer>
 </body>
