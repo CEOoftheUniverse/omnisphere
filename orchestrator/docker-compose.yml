@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: orchestrator-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  relay:
+    image: node:22-alpine
+    container_name: orchestrator-relay
+    working_dir: /app
+    volumes:
+      - ./relay:/app
+    ports:
+      - "18800:18800"   # WebSocket
+      - "18801:18801"   # HTTP API
+    environment:
+      REDIS_URL: redis://redis:6379
+      RELAY_PORT: "18801"
+      RELAY_WS_PORT: "18800"
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: sh -c "npm install --production && node relay.js"
+    restart: unless-stopped
+
+volumes:
+  redis-data:

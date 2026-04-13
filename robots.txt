@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ceooftheuniverse.github.io/omnisphere/sitemap.xml
+
+# Disallow dashboard (thin/dynamic content)
+Disallow: /omnisphere/usage.html

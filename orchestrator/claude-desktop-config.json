@@ -1,0 +1,18 @@
+{
+  "_comment": "Add this mcpServers block to Claude Desktop config. Architecture: Clawdbot=brain, Claude Code=hands, Antigravity=eyes. No Redis needed.",
+  "mcpServers": {
+    "orchestrator": {
+      "command": "node",
+      "args": [
+        "C:\\Users\\Administrator\\omnisphere\\orchestrator\\mcp-server\\index.js"
+      ],
+      "env": {
+        "CLAWDBOT_URL": "http://127.0.0.1:18789",
+        "CLAWDBOT_TOKEN": "6d3a49f029f7788215b40ada4bc03e6671b3e892870161b2",
+        "MOLTBOT_URL": "http://127.0.0.1:3000",
+        "COWORK_API": "http://127.0.0.1:8080",
+        "RELAY_WS_PORT": "18800"
+      }
+    }
+  }
+}

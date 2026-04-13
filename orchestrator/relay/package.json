@@ -1,0 +1,15 @@
+{
+  "name": "orchestrator-relay",
+  "version": "1.0.0",
+  "description": "WebSocket + HTTP relay bridge for Tampermonkey and Antigravity adapters",
+  "main": "relay.js",
+  "type": "module",
+  "scripts": {
+    "start": "node relay.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "ioredis": "^5.6.1",
+    "express": "^5.1.0"
+  }
+}
