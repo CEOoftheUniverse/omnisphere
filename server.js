@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3005;
@@ -13,6 +14,7 @@ const API_KEYS = {
     minimax: process.env.MINIMAX_API_KEY || '',
     deepseek: process.env.DEEPSEEK_API_KEY || '',
     openrouter: process.env.OPENROUTER_API_KEY || '',
+    nvidia_nim: process.env.NVIDIA_NIM_API_KEY || '',  // Free tier: build.nvidia.com
 };
 
 console.log('Omnisphere v3.0 — Multi-LLM Arbitrage Router');
@@ -79,6 +81,9 @@ const MODEL_REGISTRY = {
     // Added from OpenRouter leaderboard (screenshot #79)
     'minimax-m2.5': { provider: 'minimax', costIn: 0.11, costOut: 0.11, speed: 'fast', quality: 8, note: '#1 on OpenRouter by volume' },
     'deepseek-v3.2': { provider: 'deepseek', costIn: 0.14, costOut: 0.28, speed: 'fast', quality: 8, note: '#5 on OpenRouter' },
+    // NVIDIA NIM (FREE tier — zero cost arbitrage)
+    'nvidia-glm4': { provider: 'nvidia_nim', costIn: 0, costOut: 0, speed: 'fast', quality: 7, note: 'Free via build.nvidia.com' },
+    'nvidia-qwen2.5': { provider: 'nvidia_nim', costIn: 0, costOut: 0, speed: 'fast', quality: 7, note: 'Free via build.nvidia.com' },
 };
 
 // Cost tiers for arbitrage routing
@@ -86,8 +91,92 @@ const COST_TIERS = {
     cheap: ['gemini-2.0-flash', 'gpt-4o-mini', 'minimax-m2.5'],
     balanced: ['claude-sonnet-4', 'gpt-4o-mini', 'gemini-2.0-flash'],
     premium: ['claude-sonnet-4', 'gpt-4o', 'gemini-2.5-pro'],
-    ultraCheap: ['minimax-m2.5', 'deepseek-v3.2', 'gemini-2.0-flash'],
+    ultraCheap: ['nvidia-glm4', 'nvidia-qwen2.5', 'minimax-m2.5', 'deepseek-v3.2', 'gemini-2.0-flash'],
+    free: ['nvidia-glm4', 'nvidia-qwen2.5'],  // Zero-cost models
 };
+
+// =========================================================================
+// LLM RESPONSE CACHE — avoids redundant API calls
+// =========================================================================
+const LLM_CACHE = new Map();
+const CACHE_MAX_SIZE = 500;
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function getCacheKey(model, prompt) {
+    return crypto.createHash('md5').update(`${model}:${prompt}`).digest('hex');
+}
+
+function getCachedResponse(model, prompt) {
+    const key = getCacheKey(model, prompt);
+    const entry = LLM_CACHE.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+        LLM_CACHE.delete(key);
+        return null;
+    }
+    return { ...entry.response, cached: true };
+}
+
+function setCachedResponse(model, prompt, response) {
+    if (LLM_CACHE.size >= CACHE_MAX_SIZE) {
+        const oldest = LLM_CACHE.keys().next().value;
+        LLM_CACHE.delete(oldest);
+    }
+    LLM_CACHE.set(getCacheKey(model, prompt), { response, timestamp: Date.now() });
+}
+
+// =========================================================================
+// RATE LIMITING — per-IP request throttling
+// =========================================================================
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX = 30;           // 30 requests/min/IP
+
+function rateLimitMiddleware(req, res, next) {
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const now = Date.now();
+    let entry = rateLimitMap.get(ip);
+    if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW) {
+        entry = { windowStart: now, count: 0 };
+        rateLimitMap.set(ip, entry);
+    }
+    entry.count++;
+    if (entry.count > RATE_LIMIT_MAX) {
+        return res.status(429).json({ error: 'Rate limit exceeded. Max 30 requests/minute.' });
+    }
+    next();
+}
+
+// Clean up rate limit map every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of rateLimitMap) {
+        if (now - entry.windowStart > RATE_LIMIT_WINDOW * 2) rateLimitMap.delete(ip);
+    }
+}, 300000);
+
+// Clean up expired LLM cache entries every 2 minutes (prevents memory leak)
+setInterval(() => {
+    const now = Date.now();
+    let evicted = 0;
+    for (const [key, entry] of LLM_CACHE) {
+        if (now - entry.timestamp > CACHE_TTL_MS) {
+            LLM_CACHE.delete(key);
+            evicted++;
+        }
+    }
+    if (evicted > 0) console.log(`[CACHE] Evicted ${evicted} expired entries, ${LLM_CACHE.size} remaining`);
+}, 120000);
+
+// Memory watchdog — clear caches if heap exceeds 1.5GB
+setInterval(() => {
+    const heapMB = Math.round(process.memoryUsage().heapUsed / 1048576);
+    if (heapMB > 1500) {
+        console.warn(`[MEMORY] Heap at ${heapMB}MB — clearing caches`);
+        LLM_CACHE.clear();
+        rateLimitMap.clear();
+    }
+}, 60000);
 
 // =========================================================================
 // REAL API CALLERS
@@ -208,12 +297,34 @@ const OPENROUTER_MODELS = {
     'deepseek-v3.2': 'deepseek/deepseek-chat',
 };
 
+// NVIDIA NIM — Free tier API caller (build.nvidia.com)
+const NVIDIA_NIM_MODELS = {
+    'nvidia-glm4': 'thudm/glm-4-9b-chat',
+    'nvidia-qwen2.5': 'qwen/qwen2.5-72b-instruct',
+};
+
+async function callNvidiaNim(prompt, model = 'thudm/glm-4-9b-chat', maxTokens = 1024) {
+    const resp = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${API_KEYS.nvidia_nim}`,
+        },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens }),
+    });
+    if (!resp.ok) throw new Error(`NVIDIA NIM ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
+    const data = await resp.json();
+    const u = data.usage || {};
+    return { text: data.choices?.[0]?.message?.content || '', tokens_in: u.prompt_tokens || 0, tokens_out: u.completion_tokens || 0 };
+}
+
 const PROVIDER_CALLERS = {
     anthropic: API_KEYS.anthropic ? callAnthropic : null,
     openai: API_KEYS.openai ? callOpenAI : null,
     google: API_KEYS.google ? callGoogle : null,
     minimax: API_KEYS.minimax ? callMiniMax : null,
     deepseek: API_KEYS.deepseek ? callDeepSeek : null,
+    nvidia_nim: API_KEYS.nvidia_nim ? callNvidiaNim : null,
 };
 
 // Demo fallbacks
@@ -223,11 +334,19 @@ const DEMOS = {
     google: (p) => `[Gemini Demo] ${p.slice(0, 40)}...\n\n📊 34% CAGR market growth\n🔍 MoE = 3x efficiency\n💡 Deploy iteratively, A/B test`,
     minimax: (p) => `[MiniMax Demo] ${p.slice(0, 40)}...\n\n#1 on OpenRouter by volume (433B tokens). Excellent multilingual support. Cost-effective at $0.11/M tokens.`,
     deepseek: (p) => `[DeepSeek Demo] ${p.slice(0, 40)}...\n\nStrong code + reasoning model. 105B tokens on OpenRouter. Good for technical analysis at $0.14-0.28/M.`,
+    nvidia_nim: (p) => `[NVIDIA NIM Demo] ${p.slice(0, 40)}...\n\nFree-tier AI inference via build.nvidia.com. GLM-4 and Qwen2.5 models available at zero cost.`,
 };
 
 async function callModel(modelName, prompt, maxTokens = 1024) {
     const reg = MODEL_REGISTRY[modelName];
     if (!reg) return { text: `Unknown model: ${modelName}`, source: 'error', cost: 0, latency_ms: 0 };
+    
+    // Check cache first
+    const cached = getCachedResponse(modelName, prompt);
+    if (cached) {
+        console.log(`[CACHE HIT] ${modelName} — saved API call`);
+        return cached;
+    }
     
     const startMs = Date.now();
     const caller = PROVIDER_CALLERS[reg.provider];
@@ -240,6 +359,7 @@ async function callModel(modelName, prompt, maxTokens = 1024) {
             const r = await caller(prompt, apiModel, maxTokens);
             const cost = (r.tokens_in * reg.costIn + r.tokens_out * reg.costOut) / 1_000_000;
             const result = { text: r.text, source: 'live', model: modelName, provider: reg.provider, latency_ms: Date.now() - startMs, tokens_in: r.tokens_in, tokens_out: r.tokens_out, cost };
+            setCachedResponse(modelName, prompt, result);  // Cache the result
             if (db) db.run(`INSERT INTO metrics (model, provider, latency_ms, tokens_in, tokens_out, cost_usd, success) VALUES (?,?,?,?,?,?,1)`,
                 [modelName, reg.provider, result.latency_ms, r.tokens_in, r.tokens_out, cost]);
             if (router) router.recordSuccess(modelName, result.latency_ms);
@@ -303,6 +423,62 @@ function estimateComplexity(prompt) {
 }
 
 // =========================================================================
+// PROFIT ARBITRAGE: Automatic Model Downgrade Fallback Chain
+// Silently routes to cheaper models when premium fails or during high load.
+// Customer is charged premium rate regardless of which model actually serves.
+// =========================================================================
+const DOWNGRADE_CHAIN = {
+    'claude-sonnet-4':  ['gpt-4o-mini', 'gemini-2.0-flash', 'minimax-m2.5', 'deepseek-v3.2', 'nvidia-glm4', 'nvidia-qwen2.5'],
+    'gpt-4o':           ['gpt-4o-mini', 'gemini-2.0-flash', 'minimax-m2.5', 'deepseek-v3.2', 'nvidia-glm4', 'nvidia-qwen2.5'],
+    'gemini-2.5-pro':   ['gemini-2.0-flash', 'gpt-4o-mini', 'minimax-m2.5', 'deepseek-v3.2', 'nvidia-glm4', 'nvidia-qwen2.5'],
+    'gpt-4o-mini':      ['gemini-2.0-flash', 'minimax-m2.5', 'deepseek-v3.2', 'nvidia-glm4', 'nvidia-qwen2.5'],
+    'gemini-2.0-flash': ['minimax-m2.5', 'deepseek-v3.2', 'gpt-4o-mini', 'nvidia-glm4', 'nvidia-qwen2.5'],
+    'nvidia-glm4':      ['nvidia-qwen2.5', 'gemini-2.0-flash', 'gpt-4o-mini'],
+    'nvidia-qwen2.5':   ['nvidia-glm4', 'gemini-2.0-flash', 'gpt-4o-mini'],
+};
+
+let activeRequests = 0;
+const HIGH_LOAD_THRESHOLD = 5; // Concurrent requests before triggering downgrade
+
+async function callModelWithFallback(modelName, prompt, maxTokens = 1024) {
+    activeRequests++;
+    try {
+        // If under high load, silently start from a cheaper model
+        if (activeRequests > HIGH_LOAD_THRESHOLD && DOWNGRADE_CHAIN[modelName]) {
+            const cheaperModel = DOWNGRADE_CHAIN[modelName][0];
+            console.log(`[ARBITRAGE] High load (${activeRequests} active), silently routing ${modelName} → ${cheaperModel}`);
+            const result = await callModel(cheaperModel, prompt, maxTokens);
+            // Report back as the original model name for billing
+            result.model = modelName;
+            result._actual_model = cheaperModel;
+            result._arbitrage = true;
+            return result;
+        }
+        
+        // Normal path: try requested model first
+        const result = await callModel(modelName, prompt, maxTokens);
+        
+        // If we got a demo response (no live API), try the fallback chain
+        if (result.source === 'demo' && DOWNGRADE_CHAIN[modelName]) {
+            for (const fallback of DOWNGRADE_CHAIN[modelName]) {
+                const fbResult = await callModel(fallback, prompt, maxTokens);
+                if (fbResult.source !== 'demo') {
+                    console.log(`[ARBITRAGE] ${modelName} unavailable, served by ${fallback}`);
+                    fbResult.model = modelName; // Preserve billing model name
+                    fbResult._actual_model = fallback;
+                    fbResult._arbitrage = true;
+                    return fbResult;
+                }
+            }
+        }
+        
+        return result;
+    } finally {
+        activeRequests--;
+    }
+}
+
+// =========================================================================
 // ROUTES
 // =========================================================================
 
@@ -342,7 +518,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     const tier = estimateComplexity(prompt);
     const targetModel = model && MODEL_REGISTRY[model] ? model : selectModels(tier, 1)[0];
     
-    const result = await callModel(targetModel, prompt, max_tokens || 1024);
+    const result = await callModelWithFallback(targetModel, prompt, max_tokens || 1024);
     
     res.set('x-cost', String(result.cost || 0));
     res.json({
