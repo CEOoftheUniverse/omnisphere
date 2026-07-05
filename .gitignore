@@ -3,3 +3,6 @@ node_modules/
 .env
 
 .admin_secret
+
+# Task #46 2026-07-05: live API key store must never be pushed (was published in Phase 74)
+data/api_keys.json
