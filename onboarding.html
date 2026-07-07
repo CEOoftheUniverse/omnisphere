@@ -77,7 +77,10 @@ async function createKey() {
     try {
         const r = await fetch('/admin/keys', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-secret': 'omni-admin-2026' },
+            // Task #43: hardcoded admin secret scrubbed (burned). Self-serve key minting
+            // now requires an operator-issued X-Admin-Secret; without it the server
+            // answers 403 by design.
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, tier, monthlyBudget: budgets[tier] })
         });
         const d = await r.json();

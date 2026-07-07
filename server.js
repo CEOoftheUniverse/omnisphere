@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3005;
@@ -655,9 +656,17 @@ app.get('/api/pricing', (_req, res) => {
 });
 
 // ===== ADMIN: API Key Management =====
-const ADMIN_SECRET = process.env.OMNISPHERE_ADMIN_SECRET || 'omni-admin-2026';
+// Task #42: :3005 binds 0.0.0.0 and is firewall-Allowed inbound (internet-facing by
+// design — it's the Omnisphere product API). The admin routes below (key minting,
+// revenue) must NOT be public. Secret comes from env or a git-ignored .admin_secret
+// file (same pattern as .omni_key). FAIL CLOSED when unset — the old `|| ''` default
+// meant an empty `?admin_secret=` string compared equal and bypassed auth entirely.
+const ADMIN_SECRET = (process.env.OMNISPHERE_ADMIN_SECRET
+    || (() => { try { return fs.readFileSync(path.join(__dirname, '.admin_secret'), 'utf8'); } catch { return ''; } })()
+).trim();
 
 function adminAuth(req, res, next) {
+    if (!ADMIN_SECRET) return res.status(503).json({ error: 'Admin disabled: OMNISPHERE_ADMIN_SECRET / .admin_secret not configured' });
     const secret = req.headers['x-admin-secret'] || req.query.admin_secret;
     if (secret !== ADMIN_SECRET) return res.status(403).json({ error: 'Admin access required' });
     next();
