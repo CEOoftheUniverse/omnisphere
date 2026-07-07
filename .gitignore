@@ -1,4 +1,10 @@
 node_modules/
 *.db
 .env
+# Task #43: admin secret file (same pattern as multi-llm-platform/.admin_secret)
+.admin_secret
+backend/.env
 
+
+# Task #46 2026-07-05: key-store snapshot must never be pushed again (stale copy of the rotated store)
+data/api_keys.json

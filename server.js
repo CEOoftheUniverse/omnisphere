@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3005;
@@ -479,9 +480,18 @@ app.get('/api/pricing', (_req, res) => {
 });
 
 // ===== ADMIN: API Key Management =====
-const ADMIN_SECRET = process.env.OMNISPHERE_ADMIN_SECRET || 'omni-admin-2026';
+// Task #43: ported verbatim from multi-llm-platform/server.js (Task #42 fix). The old
+// `|| 'omni-admin-...'` default (truncated; burned) was a known secret shipped in source; the plain
+// comparison also let an empty string pass when the env var was unset. Secret comes
+// from env or a git-ignored .admin_secret file. FAIL CLOSED when unset — this deploy
+// copy is dormant and deliberately ships with NO secret configured, so its admin
+// surface answers 503 if the copy is ever started.
+const ADMIN_SECRET = (process.env.OMNISPHERE_ADMIN_SECRET
+    || (() => { try { return fs.readFileSync(path.join(__dirname, '.admin_secret'), 'utf8'); } catch { return ''; } })()
+).trim();
 
 function adminAuth(req, res, next) {
+    if (!ADMIN_SECRET) return res.status(503).json({ error: 'Admin disabled: OMNISPHERE_ADMIN_SECRET / .admin_secret not configured' });
     const secret = req.headers['x-admin-secret'] || req.query.admin_secret;
     if (secret !== ADMIN_SECRET) return res.status(403).json({ error: 'Admin access required' });
     next();
